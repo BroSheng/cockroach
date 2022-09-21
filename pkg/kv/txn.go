@@ -58,6 +58,9 @@ type Txn struct {
 	// It will be attached to all requests sent through this transaction.
 	gatewayNodeID roachpb.NodeID
 
+	// Added locality info here
+	locality []roachpb.Locality
+
 	// The following fields are not safe for concurrent modification.
 	// They should be set before operating on the transaction.
 
@@ -108,13 +111,14 @@ type Txn struct {
 // transaction (including stopping the heartbeat loop).
 //
 // gatewayNodeID: If != 0, this is the ID of the node on whose behalf this
-//   transaction is running. Normally this is the current node, but in the case
-//   of Txns created on remote nodes by DistSQL this will be the gateway.
-//   If 0 is passed, then no value is going to be filled in the batches sent
-//   through this txn. This will have the effect that the DistSender will fill
-//   in the batch with the current node's ID.
-//   If the gatewayNodeID is set and this is a root transaction, we optimize
-//   away any clock uncertainty for our own node, as our clock is accessible.
+//
+//	transaction is running. Normally this is the current node, but in the case
+//	of Txns created on remote nodes by DistSQL this will be the gateway.
+//	If 0 is passed, then no value is going to be filled in the batches sent
+//	through this txn. This will have the effect that the DistSender will fill
+//	in the batch with the current node's ID.
+//	If the gatewayNodeID is set and this is a root transaction, we optimize
+//	away any clock uncertainty for our own node, as our clock is accessible.
 //
 // See also db.NewTxn().
 func NewTxn(ctx context.Context, db *DB, gatewayNodeID roachpb.NodeID) *Txn {
@@ -198,7 +202,7 @@ func NewTxnFromProto(
 		proto.UpdateObservedTimestamp(gatewayNodeID, now)
 	}
 
-	txn := &Txn{db: db, typ: typ, gatewayNodeID: gatewayNodeID}
+	txn := &Txn{db: db, typ: typ, gatewayNodeID: gatewayNodeID, locality: []roachpb.Locality{}}
 	txn.mu.ID = proto.ID
 	txn.mu.userPriority = roachpb.NormalUserPriority
 	txn.mu.sender = db.factory.RootTransactionalSender(proto, txn.mu.userPriority)
@@ -218,7 +222,7 @@ func NewLeafTxn(
 			errors.AssertionFailedf("can't create leaf txn with non-PENDING proto: %s", tis.Txn), ctx))
 	}
 	tis.Txn.AssertInitialized(ctx)
-	txn := &Txn{db: db, typ: LeafTxn, gatewayNodeID: gatewayNodeID}
+	txn := &Txn{db: db, typ: LeafTxn, gatewayNodeID: gatewayNodeID, locality: []roachpb.Locality{}}
 	txn.mu.ID = tis.Txn.ID
 	txn.mu.userPriority = roachpb.NormalUserPriority
 	txn.mu.sender = db.factory.LeafTransactionalSender(tis)
@@ -449,8 +453,8 @@ func (txn *Txn) NewBatch() *Batch {
 // Get retrieves the value for a key, returning the retrieved key/value or an
 // error. It is not considered an error for the key to not exist.
 //
-//   r, err := txn.Get("a")
-//   // string(r.Key) == "a"
+//	r, err := txn.Get("a")
+//	// string(r.Key) == "a"
 //
 // key can be either a byte slice or a string.
 func (txn *Txn) Get(ctx context.Context, key interface{}) (KeyValue, error) {
@@ -463,8 +467,8 @@ func (txn *Txn) Get(ctx context.Context, key interface{}) (KeyValue, error) {
 // or an error. An unreplicated, exclusive lock is acquired on the key, if it
 // exists. It is not considered an error for the key to not exist.
 //
-//   r, err := txn.GetForUpdate("a")
-//   // string(r.Key) == "a"
+//	r, err := txn.GetForUpdate("a")
+//	// string(r.Key) == "a"
 //
 // key can be either a byte slice or a string.
 func (txn *Txn) GetForUpdate(ctx context.Context, key interface{}) (KeyValue, error) {

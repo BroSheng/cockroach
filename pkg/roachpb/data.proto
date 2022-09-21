@@ -474,6 +474,9 @@ message Transaction {
   repeated storage.enginepb.IgnoredSeqNumRange ignored_seqnums = 18
     [(gogoproto.nullable) = false, (gogoproto.customname) = "IgnoredSeqNums"];
 
+  // You may add the locality info here
+  // Locality loc = 19;
+
   reserved 3, 6, 9, 13, 14;
 }
 
