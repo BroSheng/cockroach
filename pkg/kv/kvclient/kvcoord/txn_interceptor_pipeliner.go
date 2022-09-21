@@ -264,6 +264,8 @@ func (tp *txnPipeliner) SendLocked(
 	// Try to get the operation's locality here
 	// distSender := tp.riGen.ds
 
+	// Use distSender to get all the locality and update the txn
+
 	// Get the locality for this node if you need.
 	// locality := tp.riGen.ds.getNodeDescriptor().Locality
 
